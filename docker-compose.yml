@@ -23,8 +23,6 @@ services:
     restart: always
     ports:
       - "8080:80"
-    volumes:
-      - ./html:/var/www/html
     depends_on:
       - db
     networks:
