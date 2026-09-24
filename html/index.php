@@ -65,8 +65,6 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- مكتبة التقاط الصور -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8f9fa; overflow: hidden; }
         #map { height: calc(100vh - 70px); width: 100%; }
@@ -74,6 +72,14 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
         .card-custom { border-radius: 8px; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 12px; }
         .nav-pills .nav-link { font-size: 13px; padding: 6px 10px; color: #495057; }
         .nav-pills .nav-link.active { background-color: #0d6efd; color: white; }
+
+        /* إعدادات الطباعة الاحترافية لتملأ الصفحة بالكامل وبدون عناصر زائدة */
+        @media print {
+            body * { visibility: hidden; }
+            #map-container, #map-container * { visibility: visible; }
+            #map-container { position: absolute; left: 0; top: 0; width: 100vw; height: 100vh; margin: 0; padding: 0; }
+            .leaflet-control-zoom, .leaflet-control-draw, .leaflet-popup { display: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -89,8 +95,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
 
     <div class="container-fluid">
         <div class="row">
-            <!-- عنصر الخريطة المراد تصويره بدقة -->
-            <div class="col-lg-9 col-md-8 p-0" id="map-container" style="position: relative;">
+            <div class="col-lg-9 col-md-8 p-0" id="map-container">
                 <div id="map"></div>
             </div>
 
@@ -152,11 +157,11 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
                 <hr>
                 <div id="trace-actions" class="d-none">
                     <h6 class="text-primary"><i class="fas fa-route"></i> أدوات التتبع النشط</h6>
-                    <button onclick="takeSnapshot()" class="btn btn-info btn-sm w-100 text-white mb-2"><i class="fas fa-camera"></i> سحب صورة للمسار (Snapshot)</button>
+                    <button onclick="takeSnapshot()" class="btn btn-info btn-sm w-100 text-white mb-2"><i class="fas fa-print"></i> طباعة / حفظ مسار الفايبر</button>
                     <button onclick="clearTrace()" class="btn btn-secondary btn-sm w-100">إلغاء التتبع</button>
                 </div>
                 <div class="alert alert-info py-2 small mb-0 mt-2">
-                    <i class="fas fa-info-circle"></i> <b>طريقة العمل:</b> انقر على أي مشترك لتتبع مساره وسحب صورة نظيفة بدقة عالية.
+                    <i class="fas fa-info-circle"></i> <b>طريقة العمل:</b> انقر على أي مشترك لتتبع مساره والضغط على طباعة لحفظه كملف PDF أو ورقة رسمية.
                 </div>
             </div>
         </div>
@@ -258,36 +263,8 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
             document.getElementById('trace-actions').classList.add('d-none');
         }
 
-        // دالة سحب صورة نقية ومربعة للخريطة بدون أي فراغات بيضاء
         function takeSnapshot() {
-            const mapElement = document.getElementById('map-container');
-            
-            // إخفاء الأزرار الزائدة مؤقتاً أثناء التصوير
-            const sidebarActions = document.getElementById('trace-actions');
-            sidebarActions.style.display = 'none';
-
-            map.invalidateSize();
-
-            setTimeout(() => {
-                html2canvas(mapElement, { 
-                    useCORS: true, 
-                    logging: false,
-                    allowTaint: true,
-                    scale: 2, // لزيادة دقة ووضوح الصورة
-                    windowWidth: mapElement.offsetWidth,
-                    windowHeight: mapElement.offsetHeight,
-                    ignoreElements: (element) => {
-                        return element.classList.contains('leaflet-control-zoom') || element.classList.contains('leaflet-control-draw');
-                    }
-                }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = `Fiber_Route_${Date.now()}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                    
-                    sidebarActions.style.display = 'block';
-                });
-            }, 400);
+            window.print();
         }
 
         document.getElementById('btn-add-cust').addEventListener('click', () => {
@@ -370,7 +347,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
 
         map.on(L.Draw.Event.CREATED, function (e) {
             if (e.layerType === 'polyline' && !activeMode) {
-                TheCableName = prompt("أدخل اسم مسار الكابل الرئيسي:", "Fiber Core");
+                const cableName = prompt("أدخل اسم مسار الكابل الرئيسي:", "Fiber Core");
                 if (cableName) {
                     const color = prompt("اختر لون الكابل (مثال: #0d6efd أزرق، #dc3545 أحمر):", "#0d6efd");
                     const data = new URLSearchParams({
