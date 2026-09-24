@@ -8,7 +8,7 @@ try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // جدول المشتركين
+    // جدول المشتركين مع دعم تخزين إحداثيات المسار المخصص
     $pdo->exec("CREATE TABLE IF NOT EXISTS customers (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
@@ -17,13 +17,13 @@ try {
         port_number VARCHAR(50),
         package VARCHAR(50),
         connected_mh VARCHAR(100),
+        path_coordinates TEXT,
         notes TEXT,
         lat DECIMAL(10, 8) NOT NULL,
         lng DECIMAL(11, 8) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // جدول مسارات الفايبر
     $pdo->exec("CREATE TABLE IF NOT EXISTS fiber_cables (
         id INT AUTO_INCREMENT PRIMARY KEY,
         cable_name VARCHAR(100) NOT NULL,
@@ -33,7 +33,6 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    // جدول المنهولات / العقد الرئيسية
     $pdo->exec("CREATE TABLE IF NOT EXISTS manholes (
         id INT AUTO_INCREMENT PRIMARY KEY,
         mh_name VARCHAR(100) NOT NULL,
