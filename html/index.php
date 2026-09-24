@@ -1,40 +1,53 @@
 <?php
+// إيقاف طباعة الأخطاء العادية كـ HTML لضمان نظافة ردود الـ JSON
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+
 require_once 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json; charset=utf-8');
     $action =$_POST['action'] ?? '';
 
-    if ($action === 'save_customer') {
-        $stmt =$pdo->prepare("INSERT INTO customers (name, phone, onu_type, port_number, package, connected_mh, notes, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$_POST['name'], $_POST['phone'],$_POST['onu_type'], 
-            $_POST['port_number'],$_POST['package'], $_POST['connected_mh'],$_POST['notes'], $_POST['lat'],$_POST['lng']
-        ]);
-        echo json_encode(['status' => 'success']);
-        exit;
-    }
+    try {
+        if ($action === 'save_customer') {
+            $stmt =$pdo->prepare("INSERT INTO customers (name, phone, onu_type, port_number, package, connected_mh, notes, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_POST['name'], 
+                $_POST['phone'],$_POST['onu_type'], 
+                $_POST['port_number'],$_POST['package'], 
+                $_POST['connected_mh'],$_POST['notes'], 
+                $_POST['lat'],$_POST['lng']
+            ]);
+            echo json_encode(['status' => 'success']);
+            exit;
+        }
 
-    if ($action === 'save_manhole') {
-        $stmt =$pdo->prepare("INSERT INTO manholes (mh_name, mh_type, lat, lng) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$_POST['mh_name'],$_POST['mh_type'], $_POST['lat'],$_POST['lng']]);
-        echo json_encode(['status' => 'success']);
-        exit;
-    }
+        if ($action === 'save_manhole') {
+            $stmt =$pdo->prepare("INSERT INTO manholes (mh_name, mh_type, lat, lng) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$_POST['mh_name'],$_POST['mh_type'], $_POST['lat'],$_POST['lng']]);
+            echo json_encode(['status' => 'success']);
+            exit;
+        }
 
-    if ($action === 'save_cable') {
-        $stmt =$pdo->prepare("INSERT INTO fiber_cables (cable_name, fiber_color, core_count, coordinates) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$_POST['cable_name'],$_POST['fiber_color'], $_POST['core_count'],$_POST['coordinates']]);
-        echo json_encode(['status' => 'success']);
-        exit;
-    }
+        if ($action === 'save_cable') {
+            $stmt =$pdo->prepare("INSERT INTO fiber_cables (cable_name, fiber_color, core_count, coordinates) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$_POST['cable_name'],$_POST['fiber_color'], $_POST['core_count'],$_POST['coordinates']]);
+            echo json_encode(['status' => 'success']);
+            exit;
+        }
 
-    if ($action === 'delete_item') {
-        $type =$_POST['type'];
-        $id =$_POST['id'];
-        if ($type === 'customer') $stmt =$pdo->prepare("DELETE FROM customers WHERE id = ?");
-        elseif ($type === 'cable') $stmt =$pdo->prepare("DELETE FROM fiber_cables WHERE id = ?");
-        elseif ($type === 'manhole') $stmt =$pdo->prepare("DELETE FROM manholes WHERE id = ?");
-        $stmt->execute([$id]);
-        echo json_encode(['status' => 'success']);
+        if ($action === 'delete_item') {
+            $type =$_POST['type'];
+            $id =$_POST['id'];
+            if ($type === 'customer') $stmt =$pdo->prepare("DELETE FROM customers WHERE id = ?");
+            elseif ($type === 'cable') $stmt =$pdo->prepare("DELETE FROM fiber_cables WHERE id = ?");
+            elseif ($type === 'manhole') $stmt =$pdo->prepare("DELETE FROM manholes WHERE id = ?");
+            $stmt->execute([$id]);
+            echo json_encode(['status' => 'success']);
+            exit;
+        }
+    } catch (Exception $ex) {
+        echo json_encode(['status' => 'error', 'message' => $ex->getMessage()]);
         exit;
     }
 }
@@ -48,7 +61,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة شبكات الفايبر (FTTH GIS Pro)</title>
+    <title>نظام إدارة شبكات الفايبر الاحترافي (FTTH GIS Pro)</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
@@ -90,7 +103,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
                     <div class="tab-pane fade show active" id="tab-cust">
                         <div class="card card-custom p-3 bg-light">
                             <h6 class="text-success"><i class="fas fa-user-plus"></i> إضافة مشترك جديد</h6>
-                            <form id="customer-form">
+                            <form id="customer-form" onsubmit="return false;">
                                 <div class="mb-2"><input type="text" id="cust-name" class="form-control form-control-sm" placeholder="اسم المشترك *" required></div>
                                 <div class="mb-2"><input type="text" id="cust-phone" class="form-control form-control-sm" placeholder="رقم الهاتف"></div>
                                 <div class="row mb-2">
@@ -121,7 +134,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
                     <div class="tab-pane fade" id="tab-mh">
                         <div class="card card-custom p-3 bg-light">
                             <h6 class="text-warning text-dark"><i class="fas fa-cube"></i> إضافة مانهول / Splitter</h6>
-                            <form id="mh-form">
+                            <form id="mh-form" onsubmit="return false;">
                                 <div class="mb-2"><input type="text" id="mh-name" class="form-control form-control-sm" placeholder="اسم المنهول (مثال: MH-10)" required></div>
                                 <div class="mb-2">
                                     <select id="mh-type" class="form-select form-select-sm">
@@ -148,9 +161,9 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // تمركز الخريطة في أربيل
-        const map = L.map('map').setView([36.1900, 44.0090], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20 }).addTo(map);
+        // تمركز الخريطة في أربيل مع تحديد أقصى زوم 18 لتجنب أخطاء صور الخريطة
+        const map = L.map('map', { maxZoom: 18 }).setView([36.1900, 44.0090], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
 
         const drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
@@ -233,32 +246,75 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
             if (!activeMode) return;
 
             if (activeMode === 'customer') {
+                const nameInput = document.getElementById('cust-name').value;
+                if (!nameInput) {
+                    alert('الرجاء كتابة اسم المشترك أولاً!');
+                    activeMode = null;
+                    return;
+                }
+
                 const mhSelect = document.getElementById('cust-mh');
                 const data = new URLSearchParams({
                     action: 'save_customer',
-                    name: document.getElementById('cust-name').value,
-                    phone: document.getElementById('cust-phone').value,
-                    onu_type: document.getElementById('cust-onu').value,
-                    port_number: document.getElementById('cust-port').value,
-                    package: document.getElementById('cust-package').value,
-                    connected_mh: mhSelect.value,
+                    name: nameInput,
+                    phone: document.getElementById('cust-phone').value || '',
+                    onu_type: document.getElementById('cust-onu').value || '',
+                    port_number: document.getElementById('cust-port').value || '',
+                    package: document.getElementById('cust-package').value || '50 Mbps',
+                    connected_mh: mhSelect ? mhSelect.value : '',
                     notes: '',
-                    lat: e.latlng.lat, lng: e.latlng.lng
+                    lat: e.latlng.lat, 
+                    lng: e.latlng.lng
                 });
-                postData(data);
+
+                fetch('', { method: 'POST', body: data })
+                .then(res => res.text())
+                .then(text => {
+                    try {
+                        const res = JSON.parse(text);
+                        if(res.status === 'success') {
+                            location.reload();
+                        } else {
+                            alert('فشل الحفظ في قاعدة البيانات!');
+                        }
+                    } catch(err) {
+                        console.error("PHP Error:", text);
+                        alert('حدث خطأ في قاعدة البيانات (راجع الـ Console للتفاصيل)');
+                    }
+                });
+
             } else if (activeMode === 'manhole') {
+                const mhNameInput = document.getElementById('mh-name').value;
+                if (!mhNameInput) {
+                    alert('الرجاء كتابة اسم المنهول أولاً!');
+                    activeMode = null;
+                    return;
+                }
+
                 const data = new URLSearchParams({
                     action: 'save_manhole',
-                    mh_name: document.getElementById('mh-name').value,
+                    mh_name: mhNameInput,
                     mh_type: document.getElementById('mh-type').value,
-                    lat: e.latlng.lat, lng: e.latlng.lng
+                    lat: e.latlng.lat, 
+                    lng: e.latlng.lng
                 });
-                postData(data);
+
+                fetch('', { method: 'POST', body: data })
+                .then(res => res.text())
+                .then(text => {
+                    try {
+                        const res = JSON.parse(text);
+                        if(res.status === 'success') location.reload();
+                    } catch(err) {
+                        console.error("PHP Error:", text);
+                        alert('خطأ في إضافة المنهول (راجع الـ Console)');
+                    }
+                });
             }
             activeMode = null;
         });
 
-        // تفعيل أداة رسم خطوط الفايبر مع اختيار الألوان
+        // أدوات الرسم
         const drawControl = new L.Control.Draw({
             edit: { featureGroup: drawnItems },
             draw: { polygon: false, circle: false, rectangle: false, marker: false, circlemarker: false, polyline: { shapeOptions: { color: '#0dcaf0', weight: 4 } } }
@@ -278,21 +334,36 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
                         core_count: cores || 24,
                         coordinates: JSON.stringify(e.layer.getLatLngs())
                     });
-                    postData(data);
+                    
+                    fetch('', { method: 'POST', body: data })
+                    .then(res => res.text())
+                    .then(text => {
+                        try {
+                            const res = JSON.parse(text);
+                            if(res.status === 'success') location.reload();
+                        } catch(err) {
+                            console.error(text);
+                            alert('خطأ في حفظ الكابل!');
+                        }
+                    });
                 }
             }
         });
 
-        function postData(data) {
-            fetch('', { method: 'POST', body: data })
-            .then(res => res.json())
-            .then(res => { if(res.status === 'success') location.reload(); });
-        }
-
         function deleteItem(type, id) {
             if(confirm('هل أنت متأكد من الحذف؟')) {
                 const data = new URLSearchParams({ action: 'delete_item', type: type, id: id });
-                postData(data);
+                fetch('', { method: 'POST', body: data })
+                .then(res => res.text())
+                .then(text => {
+                    try {
+                        const res = JSON.parse(text);
+                        if(res.status === 'success') location.reload();
+                    } catch(err) {
+                        console.error(text);
+                        alert('خطأ أثناء الحذف!');
+                    }
+                });
             }
         }
     </script>
