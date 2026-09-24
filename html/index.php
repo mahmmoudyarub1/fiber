@@ -194,9 +194,6 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
                 iconSize: [28, 28], iconAnchor: [14, 14]
             });
 
-            // تمرير الإحداثيات بشكل آمن كنص JSON مشفر
-            const pathJSON = cust.path_coordinates ? JSON.stringify(cust.path_coordinates) : "null";
-
             L.marker([cust.lat, cust.lng], {icon}).addTo(map)
              .bindPopup(`
                 <b>مشترك:</b> ${cust.name}<br>
@@ -230,7 +227,9 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
             }
 
             if (parsedCoords && Array.isArray(parsedCoords) && parsedCoords.length > 0) {
-                const fiberLine = L.polyline(parsedCoords, { color: '#ff0055', weight: 6, opacity: 0.9 })
+                // تصحيح وتحويل الإحداثيات لرسم مسار الفايبر بدقة
+                let latLngs = parsedCoords.map(pt => [pt.lat || pt[0], pt.lng || pt[1]]);
+                const fiberLine = L.polyline(latLngs, { color: '#ff0055', weight: 6, opacity: 0.9 })
                                    .bindPopup(`مسار الفايبر للمشترك: ${custName}`);
                 groupLayers.push(fiberLine);
             }
