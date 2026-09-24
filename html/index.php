@@ -65,7 +65,6 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8f9fa; overflow: hidden; }
         #map { height: calc(100vh - 70px); width: 100%; }
@@ -73,6 +72,14 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
         .card-custom { border-radius: 8px; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 12px; }
         .nav-pills .nav-link { font-size: 13px; padding: 6px 10px; color: #495057; }
         .nav-pills .nav-link.active { background-color: #0d6efd; color: white; }
+
+        /* تنسيق مخصص للطباعة وحفظ المسار كصورة/PDF بدقة فائقة */
+        @media print {
+            body * { visibility: hidden; }
+            #map-container, #map-container * { visibility: visible; }
+            #map-container { position: absolute; left: 0; top: 0; width: 100vw; height: 100vh; }
+            .leaflet-control-zoom, .leaflet-control-draw { display: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -150,11 +157,11 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
                 <hr>
                 <div id="trace-actions" class="d-none">
                     <h6 class="text-primary"><i class="fas fa-route"></i> أدوات التتبع النشط</h6>
-                    <button onclick="takeSnapshot()" class="btn btn-info btn-sm w-100 text-white mb-2"><i class="fas fa-camera"></i> سحب صورة للمسار (Snapshot)</button>
+                    <button onclick="takeSnapshot()" class="btn btn-info btn-sm w-100 text-white mb-2"><i class="fas fa-camera"></i> حفظ/طباعة صورة المسار (Snapshot)</button>
                     <button onclick="clearTrace()" class="btn btn-secondary btn-sm w-100">إلغاء التتبع</button>
                 </div>
                 <div class="alert alert-info py-2 small mb-0 mt-2">
-                    <i class="fas fa-info-circle"></i> <b>طريقة العمل:</b> انقر على أي مشترك لتتبع مساره والمنهول وسحب صورة بصيغة PNG.
+                    <i class="fas fa-info-circle"></i> <b>طريقة العمل:</b> انقر على أي مشترك لتتبع مساره والمنهول وحفظ الخريطة بدقة فائقة.
                 </div>
             </div>
         </div>
@@ -228,7 +235,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
 
             if (parsedCoords && Array.isArray(parsedCoords) && parsedCoords.length > 0) {
                 let latLngs = parsedCoords.map(pt => [pt.lat || pt[0], pt.lng || pt[1]]);
-                const fiberLine = L.polyline(latLngs, { color: '#ff0055', weight: 8, opacity: 1.0 })
+                const fiberLine = L.polyline(latLngs, { color: '#ff0055', weight: 7, opacity: 1.0 })
                                    .bindPopup(`مسار الفايبر للمشترك: ${custName}`);
                 groupLayers.push(fiberLine);
             }
@@ -257,29 +264,8 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
         }
 
         function takeSnapshot() {
-            const sidebarActions = document.getElementById('trace-actions');
-            sidebarActions.style.display = 'none';
-
-            map.invalidateSize();
-
-            setTimeout(() => {
-                const mapElement = document.getElementById('map-container');
-                html2canvas(mapElement, { 
-                    useCORS: true, 
-                    logging: false,
-                    allowTaint: true,
-                    ignoreElements: (element) => {
-                        return element.classList.contains('leaflet-control-zoom') || element.classList.contains('leaflet-control-draw');
-                    }
-                }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = `Fiber_Route_${Date.now()}.png`;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                    
-                    sidebarActions.style.display = 'block';
-                });
-            }, 600);
+            // تفعيل نظام الطباعة الاحترافي للخرائط لحفظ المسار بالكامل مع الخطوط بدقة Vector الأصلية
+            window.print();
         }
 
         document.getElementById('btn-add-cust').addEventListener('click', () => {
