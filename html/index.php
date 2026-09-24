@@ -11,7 +11,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'save_customer') {
             $stmt =$pdo->prepare("INSERT INTO customers (name, phone, onu_type, port_number, package, connected_mh, path_coordinates, notes, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
-                $_POST['name'],$_POST['phone'], $_POST['onu_type'],$_POST['port_number'], $_POST['package'],$_POST['connected_mh'], 
+                $_POST['name'],$_POST['phone'] ?? '', 
+                $_POST['onu_type'] ?? '',$_POST['port_number'] ?? '', 
+                $_POST['package'] ?? '50 Mbps',$_POST['connected_mh'] ?? '', 
                 $_POST['path_coordinates'] ?? '',$_POST['notes'] ?? '', 
                 $_POST['lat'],$_POST['lng']
             ]);
@@ -63,7 +65,6 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- مكتبة التقاط الصور (html2canvas) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f8f9fa; overflow: hidden; }
@@ -87,7 +88,6 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
 
     <div class="container-fluid">
         <div class="row">
-            <!-- حاوية الخريطة (مهمة لالتقاط الصورة الشاملة) -->
             <div class="col-lg-9 col-md-8 p-0" id="map-container">
                 <div id="map"></div>
             </div>
@@ -154,7 +154,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
                     <button onclick="clearTrace()" class="btn btn-secondary btn-sm w-100">إلغاء التتبع</button>
                 </div>
                 <div class="alert alert-info py-2 small mb-0 mt-2">
-                    <i class="fas fa-info-circle"></i> <b>طريقة العمل:</b> عند النقر لتحديد مكان المشترك، سيُطلب منك رسم مسار الفايبر الواصل إليه.
+                    <i class="fas fa-info-circle"></i> <b>طريقة العمل:</b> انقر على أي مشترك لتتبع مساره والمنهول وسحب صورة بصيغة PNG.
                 </div>
             </div>
         </div>
@@ -172,7 +172,6 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
         const traceLayer = new L.LayerGroup().addTo(map);
 
         let activeMode = null;
-        let tempCustomerData = null;
         const customers = <?= json_encode($customers) ?>;
         const manholes = <?= json_encode($manholes) ?>;
         const cables = <?= json_encode($cables) ?>;
@@ -189,15 +188,14 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
              .bindPopup(`<b>العقدة:</b> ${mh.mh_name}<br><b>النوع:</b> ${mh.mh_type}<br><button class="btn btn-danger btn-sm mt-2" onclick="deleteItem('manhole', ${mh.id})">حذف</button>`);
         });
 
-        // رسم المشتركين مع زر التتبع
         customers.forEach(cust => {
             const icon = L.divIcon({
                 html: `<div style="background:#198754; color:white; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-user" style="font-size:12px;"></i></div>`,
                 iconSize: [28, 28], iconAnchor: [14, 14]
             });
 
-            // تحويل مسار المشترك المحفوظ من JSON
-            let custPath = cust.path_coordinates ? JSON.parse(cust.path_coordinates) : null;
+            // تمرير الإحداثيات بشكل آمن كنص JSON مشفر
+            const pathJSON = cust.path_coordinates ? JSON.stringify(cust.path_coordinates) : "null";
 
             L.marker([cust.lat, cust.lng], {icon}).addTo(map)
              .bindPopup(`
@@ -205,7 +203,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
                 <b>الهاتف:</b> ${cust.phone || '-'}<br>
                 <b>ONU:</b> ${cust.onu_type || '-'}<br>
                 <b>المنهول المغذي:</b> ${cust.connected_mh || 'غير محدد'}<br>
-                <button class="btn btn-primary btn-sm mt-2 w-100" onclick='traceCustomerPath(${cust.lat}, ${cust.lng}, "${cust.connected_mh}", ${cust.path_coordinates ? cust.path_coordinates : "null"}, "${cust.name}")'>
+                <button class="btn btn-primary btn-sm mt-2 w-100" onclick='traceCustomerPath(${cust.lat}, ${cust.lng}, "${cust.connected_mh}", ${JSON.stringify(cust.path_coordinates)}, "${cust.name}")'>
                     <i class="fas fa-route"></i> تتبع مسار الفايبر والمنهول
                 </button>
                 <button class="btn btn-danger btn-sm mt-1 w-100" onclick="deleteItem('customer', ${cust.id})">حذف المشترك</button>
@@ -219,42 +217,40 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
              .addTo(drawnItems);
         });
 
-        // تتبع مسار المشترك المخصص والمنهول معاً
         function traceCustomerPath(custLat, custLng, mhName, pathCoords, custName) {
             traceLayer.clearLayers();
             let groupLayers = [];
 
-            // 1. إضافة ماركر المشترك
-            const custMarker = L.marker([custLat, custLng]).bindPopup(`موقع المشترك: ${custName}`);
+            const custMarker = L.marker([custLat, custLng]).bindPopup(`المشترك: ${custName}`);
             groupLayers.push(custMarker);
 
-            // 2. إذا كان هناك مسار فايبر مخصص مرسوم مسبقاً، اعرضه
-            if (pathCoords && pathCoords.length > 0) {
-                const fiberLine = L.polyline(pathCoords, { color: '#ff0055', weight: 5, opacity: 0.9 });
-                fiberLine.bindPopup(`مسار الفايبر للمشترك: ${custName}`);
+            let parsedCoords = pathCoords;
+            if (typeof pathCoords === 'string') {
+                try { parsedCoords = JSON.parse(pathCoords); } catch(e) { parsedCoords = null; }
+            }
+
+            if (parsedCoords && Array.isArray(parsedCoords) && parsedCoords.length > 0) {
+                const fiberLine = L.polyline(parsedCoords, { color: '#ff0055', weight: 6, opacity: 0.9 })
+                                   .bindPopup(`مسار الفايبر للمشترك: ${custName}`);
                 groupLayers.push(fiberLine);
             }
 
-            // 3. إذا كان مرتبط بمنهول، أضف خط الربط أو اعرضه
             if (mhName && manholesMap[mhName]) {
                 const mhCoords = manholesMap[mhName];
-                const mhMarker = L.marker(mhCoords).bindPopup(`المنهول المغذي: ${mhName}`);
+                const mhMarker = L.marker(mhCoords).bindPopup(`المنهول: ${mhName}`);
                 groupLayers.push(mhMarker);
 
-                // إذا لم يكن هناك مسار مرسوم، ارسم خط مباشر للمنهول
-                if (!pathCoords || pathCoords.length === 0) {
+                if (!parsedCoords || parsedCoords.length === 0) {
                     const directLine = L.polyline([[custLat, custLng], mhCoords], { color: '#0dcaf0', weight: 4, dashArray: '5, 5' });
                     groupLayers.push(directLine);
                 }
             }
 
-            // إضافة الكل لطبقة التتبع وعمل Zoom
             const featureGroup = L.featureGroup(groupLayers).addTo(traceLayer);
             map.fitBounds(featureGroup.getBounds(), { padding: [60, 60] });
 
-            // إظهار أدوات لقطة الشاشة في القائمة الجانبية
             document.getElementById('trace-actions').classList.remove('d-none');
-            alert(`تم تتبع مسار المشترك (${custName}) بنجاح!`);
+            alert(`تم تتبع مسار الفايبر والمنهول للمشترك (${custName}) بنجاح!`);
         }
 
         function clearTrace() {
@@ -262,7 +258,6 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
             document.getElementById('trace-actions').classList.add('d-none');
         }
 
-        // خاصية سحب صورة (Snapshot) لشاشة الخريطة بضغطة زر
         function takeSnapshot() {
             const mapElement = document.getElementById('map-container');
             html2canvas(mapElement, { useCORS: true }).then(canvas => {
@@ -277,7 +272,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
             const name = document.getElementById('cust-name').value;
             if(!name) { alert('أدخل اسم المشترك أولاً!'); return; }
             activeMode = 'customer';
-            alert('خطوة 1: انقر على موقع منزل المشترك في الخريطة');
+            alert('خطوة 1: انقر الآن على موقع منزل المشترك في الخريطة');
         });
 
         document.getElementById('btn-add-mh').addEventListener('click', () => {
@@ -287,61 +282,49 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
         });
 
         map.on('click', function(e) {
-            if (activeMode !== 'customer') return;
+            if (activeMode === 'customer') {
+                const custLat = e.latlng.lat;
+                const custLng = e.latlng.lng;
+                activeMode = null;
 
-            // بعد النقر على موقع المشترك، نطلب منه رسم مسار الفايبر الواصل للمشترك
-            const custLat = e.latlng.lat;
-            const custLng = e.latlng.lng;
-            activeMode = null;
+                alert('خطوة 2: استخدم أداة رسم الخط (Polyline) من يسار الخريطة لرسم مسار الفايبر من المنهول إلى منزل المشترك، ثم اضغط نقرة مزدوجة للإنهاء!');
 
-            alert('خطوة 2: استخدم أداة رسم الخط (Polyline) من يسار الخريطة لرسم مسار الفايبر من المنهول إلى هذا المشترك، ثم اضغط نقرة مزدوجة للإنهاء!');
+                const drawControl = new L.Draw.Polyline(map, { shapeOptions: { color: '#ff0055', weight: 5 } });
+                drawControl.enable();
 
-            // تفعيل أداة رسم مؤقتة لمسار المشترك
-            const drawControl = new L.Draw.Polyline(map, { shapeOptions: { color: '#ff0055', weight: 5 } });
-            drawControl.enable();
+                map.once(L.Draw.Event.CREATED, function (evt) {
+                    const pathCoords = evt.layer.getLatLngs();
+                    const nameInput = document.getElementById('cust-name').value;
+                    const mhSelect = document.getElementById('cust-mh');
 
-            map.once(L.Draw.Event.CREATED, function (evt) {
-                const pathCoords = evt.layer.getLatLngs();
-                
-                const nameInput = document.getElementById('cust-name').value;
-                const mhSelect = document.getElementById('cust-mh');
+                    const data = new URLSearchParams({
+                        action: 'save_customer',
+                        name: nameInput,
+                        phone: document.getElementById('cust-phone').value || '',
+                        onu_type: document.getElementById('cust-onu').value || '',
+                        port_number: document.getElementById('cust-port').value || '',
+                        package: document.getElementById('cust-package').value || '50 Mbps',
+                        connected_mh: mhSelect ? mhSelect.value : '',
+                        path_coordinates: JSON.stringify(pathCoords),
+                        notes: '',
+                        lat: custLat, 
+                        lng: custLng
+                    });
 
-                const data = new URLSearchParams({
-                    action: 'save_customer',
-                    name: nameInput,
-                    phone: document.getElementById('cust-phone').value || '',
-                    onu_type: document.getElementById('cust-onu').value || '',
-                    port_number: document.getElementById('cust-port').value || '',
-                    package: document.getElementById('cust-package').value || '50 Mbps',
-                    connected_mh: mhSelect ? mhSelect.value : '',
-                    path_coordinates: JSON.stringify(pathCoords),
-                    notes: '',
-                    lat: custLat, 
-                    lng: custLng
+                    fetch('', { method: 'POST', body: data })
+                    .then(res => res.text())
+                    .then(text => {
+                        try {
+                            const res = JSON.parse(text);
+                            if(res.status === 'success') location.reload();
+                            else alert('فشل الحفظ!');
+                        } catch(err) {
+                            console.error(text);
+                            alert('خطأ في الاتصال بقاعدة البيانات');
+                        }
+                    });
                 });
-
-                fetch('', { method: 'POST', body: data })
-                .then(res => res.text())
-                .then(text => {
-                    try {
-                        const res = JSON.parse(text);
-                        if(res.status === 'success') location.reload();
-                        else alert('فشل الحفظ!');
-                    } catch(err) {
-                        console.error(text);
-                        alert('خطأ في الاتصال بقاعدة البيانات');
-                    }
-                });
-            });
-        });
-
-        // إضافة مانهول عادي
-        document.getElementById('btn-add-mh').addEventListener('click', () => {
-            // يتم معالجتها عند النقر
-        });
-        
-        map.on('click', function(e) {
-            if (activeMode === 'manhole') {
+            } else if (activeMode === 'manhole') {
                 const mhNameInput = document.getElementById('mh-name').value;
                 const data = new URLSearchParams({
                     action: 'save_manhole',
@@ -357,7 +340,6 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
             }
         });
 
-        // أدوات رسم الكابلات العامة
         const generalDrawControl = new L.Control.Draw({
             edit: { featureGroup: drawnItems },
             draw: { polygon: false, circle: false, rectangle: false, marker: false, circlemarker: false, polyline: { shapeOptions: { color: '#0dcaf0', weight: 4 } } }
