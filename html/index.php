@@ -227,7 +227,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
             }
 
             if (parsedCoords && Array.isArray(parsedCoords) && parsedCoords.length > 0) {
-                // تصحيح وتحويل الإحداثيات لرسم مسار الفايبر بدقة
+                // تحويل إحداثيات المسار المخصص بدقة تامة لتظهر في الخريطة والصورة
                 let latLngs = parsedCoords.map(pt => [pt.lat || pt[0], pt.lng || pt[1]]);
                 const fiberLine = L.polyline(latLngs, { color: '#ff0055', weight: 6, opacity: 0.9 })
                                    .bindPopup(`مسار الفايبر للمشترك: ${custName}`);
@@ -258,13 +258,21 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
         }
 
         function takeSnapshot() {
-            const mapElement = document.getElementById('map-container');
-            html2canvas(mapElement, { useCORS: true }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'fiber_route_snapshot.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            });
+            const sidebarActions = document.getElementById('trace-actions');
+            sidebarActions.style.display = 'none';
+
+            // إعطاء مهلة قصيرة لضمان استقرار رسم الخطوط على الخريطة قبل التقاط الصورة
+            setTimeout(() => {
+                const mapElement = document.getElementById('map-container');
+                html2canvas(mapElement, { useCORS: true, logging: false }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = 'fiber_route_snapshot.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    
+                    sidebarActions.style.display = 'block';
+                });
+            }, 300);
         }
 
         document.getElementById('btn-add-cust').addEventListener('click', () => {
