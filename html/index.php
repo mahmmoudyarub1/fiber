@@ -227,9 +227,8 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
             }
 
             if (parsedCoords && Array.isArray(parsedCoords) && parsedCoords.length > 0) {
-                // تحويل إحداثيات المسار المخصص بدقة تامة لتظهر في الخريطة والصورة
                 let latLngs = parsedCoords.map(pt => [pt.lat || pt[0], pt.lng || pt[1]]);
-                const fiberLine = L.polyline(latLngs, { color: '#ff0055', weight: 6, opacity: 0.9 })
+                const fiberLine = L.polyline(latLngs, { color: '#ff0055', weight: 8, opacity: 1.0 })
                                    .bindPopup(`مسار الفايبر للمشترك: ${custName}`);
                 groupLayers.push(fiberLine);
             }
@@ -240,7 +239,7 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
                 groupLayers.push(mhMarker);
 
                 if (!parsedCoords || parsedCoords.length === 0) {
-                    const directLine = L.polyline([[custLat, custLng], mhCoords], { color: '#0dcaf0', weight: 4, dashArray: '5, 5' });
+                    const directLine = L.polyline([[custLat, custLng], mhCoords], { color: '#0dcaf0', weight: 6, opacity: 1.0 });
                     groupLayers.push(directLine);
                 }
             }
@@ -261,18 +260,26 @@ $manholes =$pdo->query("SELECT * FROM manholes")->fetchAll(PDO::FETCH_ASSOC);
             const sidebarActions = document.getElementById('trace-actions');
             sidebarActions.style.display = 'none';
 
-            // إعطاء مهلة قصيرة لضمان استقرار رسم الخطوط على الخريطة قبل التقاط الصورة
+            map.invalidateSize();
+
             setTimeout(() => {
                 const mapElement = document.getElementById('map-container');
-                html2canvas(mapElement, { useCORS: true, logging: false }).then(canvas => {
+                html2canvas(mapElement, { 
+                    useCORS: true, 
+                    logging: false,
+                    allowTaint: true,
+                    ignoreElements: (element) => {
+                        return element.classList.contains('leaflet-control-zoom') || element.classList.contains('leaflet-control-draw');
+                    }
+                }).then(canvas => {
                     const link = document.createElement('a');
-                    link.download = 'fiber_route_snapshot.png';
+                    link.download = `Fiber_Route_${Date.now()}.png`;
                     link.href = canvas.toDataURL('image/png');
                     link.click();
                     
                     sidebarActions.style.display = 'block';
                 });
-            }, 300);
+            }, 600);
         }
 
         document.getElementById('btn-add-cust').addEventListener('click', () => {
