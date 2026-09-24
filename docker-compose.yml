@@ -30,6 +30,16 @@ services:
     networks:
       - gis-net
 
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare_tunnel
+    restart: always
+    command: tunnel --no-autoupdate run --token eyJhIjoiZjBkYjE5NGYzNWU3Yjk2NGNjMDNlODk0Mjc5NmQ0MDgiLCJ0IjoiMjkzNDY3YzktNjdmYy00ZDFhLTk2YjUtMzkwZDk0ZDExODBhIiwicyI6IlpHUXhZems0WmprdFkySTFaQzAwWWpFekxUbGxNVGN0WVdSak5USmtPR0kyWWpVMyJ9
+    depends_on:
+      - web
+    networks:
+      - gis-net
+
 volumes:
   mysql_data:
 
