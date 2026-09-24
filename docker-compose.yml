@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: gis_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword123
+      MYSQL_DATABASE: fiber_gis_db
+      MYSQL_USER: gis_user
+      MYSQL_PASSWORD: gis_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - gis-net
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gis_php_app
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./html:/var/www/html
+    depends_on:
+      - db
+    networks:
+      - gis-net
+
+volumes:
+  mysql_data:
+
+networks:
+  gis-net:
+    driver: bridge
